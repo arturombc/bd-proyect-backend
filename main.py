@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, request, jsonify
 import psycopg2
 from flask_cors import CORS
 
@@ -48,7 +48,29 @@ def query3():
     
     return jsonify(data)
 
-# Listar abogados, casos
+@app.route('/sql', methods=['POST'])
+def sql():
+    cur = conn.cursor()
+    set_search_path = "set search_path to mil;"
+    cur.execute(set_search_path)
+    query = request.get_json()['query']
+    print(query)
+    # expresión regular para hacer que solo se puedan hacer consultas de tipo SELECT
+    if query[0:6].upper() != 'SELECT':
+        cur.close()
+        return jsonify({'success': False, 'info': 'Solo se permiten consultas de tipo SELECT'})
+    # expresion regular para evitar que se puedan hacer consultas de tipo DROP, DELETE, UPDATE, INSERT
+    if 'DROP' in query.upper() or 'DELETE' in query.upper() or 'UPDATE' in query.upper() or 'INSERT' in query.upper():
+        cur.close()
+        return jsonify({'success': False, 'info': 'No se permiten consultas de tipo DROP, DELETE, UPDATE, INSERT'})
+    try:
+        cur.execute(query)
+    except Exception as e:
+        cur.close()
+        return jsonify({'success': False, 'info': 'Error en la consulta'})
+    print(query)
+    data = cur.fetchall()
+    return jsonify({'success':True, 'info':data})
 
 @app.route('/personas',methods=['GET'])
 def get_abogados():
@@ -65,14 +87,18 @@ def get_abogados():
 @app.route('/casos')
 def get_casos():
     cur = conn.cursor()
-    cur.execute('SELECT * FROM casos')
+    set_search_path = "set search_path to mil;"
+    cur.execute(set_search_path)
+    cur.execute('SELECT * FROM casos limit 10')
     data = cur.fetchall()
     return jsonify(data)
 
 @app.route('/secretarios')
 def get_secretarios():
     cur = conn.cursor()
-    cur.execute('SELECT * FROM secretarios')
+    set_search_path = "set search_path to mil;"
+    cur.execute(set_search_path)
+    cur.execute('SELECT * FROM secretarios limit 10')
     data = cur.fetchall()
     return jsonify({'success': True, 'secretarios': data})
 
